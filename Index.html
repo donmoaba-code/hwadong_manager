@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화동옥션 플랫폼</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+        .modal-animate { animation: zoomIn 0.2s ease-out; }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .custom-select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen">
+
+    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 shadow-sm">
+        <div class="max-w-[1800px] mx-auto flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-indigo-600 p-2.5 rounded-2xl shadow-lg flex items-center justify-center text-white">
+                    <i data-lucide="hard-drive" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                        화동옥션 플랫폼 <span class="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full border border-indigo-200 uppercase font-bold tracking-tighter">OFFLINE V3.6</span>
+                    </h1>
+                    <div id="fileNameDisplay" class="text-[11px] font-bold text-slate-500 mt-1 h-4"></div>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="relative group mr-2 flex-1 min-w-[300px] max-w-[600px]">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                    <input id="searchInput" type="text" placeholder="제목, LOT, 회차 검색..." class="pl-10 pr-10 py-2.5 bg-slate-100 border-none rounded-xl w-full focus:ring-2 focus:ring-indigo-500 text-sm shadow-inner transition-all">
+                    <button id="searchClearBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <button onclick="exportJSON()" class="p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="JSON 내보내기"><i data-lucide="download"></i></button>
+                <button onclick="document.getElementById('fileInput').click()" class="p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="JSON 불러오기"><i data-lucide="upload"></i></button>
+                <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importJSON(event)">
+                <button onclick="openResetModal()" class="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="데이터 전체 삭제"><i data-lucide="trash-2"></i></button>
+                <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md active:scale-95 ml-2 whitespace-nowrap"><i data-lucide="plus" class="w-4 h-4"></i><span>대량 수집</span></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1800px] mx-auto p-6 md:p-8">
+        
+        <div class="mb-4 bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-end xl:items-center gap-6">
+            <div class="w-full xl:w-auto">
+                <p id="itemCountDisplay" class="text-xl md:text-2xl font-black text-slate-700 flex items-center gap-2 mb-4 xl:mb-0">
+                    <i data-lucide="database" class="w-6 h-6 text-slate-300"></i>
+                    데이터 로딩 중...
+                </p>
+            </div>
+
+            <div class="flex flex-col md:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Sort 1</span>
+                    <select id="sort1" onchange="applySort()" class="custom-select bg-white border border-slate-200 text-xs font-bold rounded-xl py-2 pl-3 pr-8 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700">
+                        <option value="default">전체 (기본)</option>
+                        <option value="title_asc">제목 (오름차순)</option>
+                        <option value="title_desc">제목 (내림차순)</option>
+                        <option value="date_asc">일자 (오름차순)</option>
+                        <option value="date_desc">일자 (내림차순)</option>
+                        <option value="start_asc">시작가 (오름차순)</option>
+                        <option value="start_desc">시작가 (내림차순)</option>
+                        <option value="end_asc">낙찰가 (오름차순)</option>
+                        <option value="end_desc">낙찰가 (내림차순)</option>
+                        <option value="session_asc">회차 (오름차순)</option>
+                        <option value="session_desc">회차 (내림차순)</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Sort 2</span>
+                    <select id="sort2" onchange="applySort()" class="custom-select bg-white border border-slate-200 text-xs font-bold rounded-xl py-2 pl-3 pr-8 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700">
+                        <option value="none">선택 안함</option>
+                        <option value="title_asc">제목 (오름차순)</option>
+                        <option value="title_desc">제목 (내림차순)</option>
+                        <option value="date_asc">일자 (오름차순)</option>
+                        <option value="date_desc">일자 (내림차순)</option>
+                        <option value="start_asc">시작가 (오름차순)</option>
+                        <option value="start_desc">시작가 (내림차순)</option>
+                        <option value="end_asc">낙찰가 (오름차순)</option>
+                        <option value="end_desc">낙찰가 (내림차순)</option>
+                        <option value="session_asc">회차 (오름차순)</option>
+                        <option value="session_desc">회차 (내림차순)</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Sort 3</span>
+                    <select id="sort3" onchange="applySort()" class="custom-select bg-white border border-slate-200 text-xs font-bold rounded-xl py-2 pl-3 pr-8 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700">
+                        <option value="none">선택 안함</option>
+                        <option value="title_asc">제목 (오름차순)</option>
+                        <option value="title_desc">제목 (내림차순)</option>
+                        <option value="date_asc">일자 (오름차순)</option>
+                        <option value="date_desc">일자 (내림차순)</option>
+                        <option value="start_asc">시작가 (오름차순)</option>
+                        <option value="start_desc">시작가 (내림차순)</option>
+                        <option value="end_asc">낙찰가 (오름차순)</option>
+                        <option value="end_desc">낙찰가 (내림차순)</option>
+                        <option value="session_asc">회차 (오름차순)</option>
+                        <option value="session_desc">회차 (내림차순)</option>
+                    </select>
+                </div>
+
+                <button onclick="resetSort()" class="bg-slate-800 hover:bg-slate-700 text-white p-2.5 rounded-xl transition-all shadow-md" title="정렬 초기화">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+
+                <div class="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">표시</span>
+                    <select id="rowsPerPage" onchange="changeItemsPerPage()" class="custom-select bg-white border border-slate-200 text-xs font-bold rounded-xl py-2 pl-3 pr-8 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 shadow-sm">
+                        <option value="10">10행</option>
+                        <option value="20">20행</option>
+                        <option value="30">30행</option>
+                        <option value="50">50행</option>
+                        <option value="100" selected>100행</option>
+                        <option value="200">200행</option>
+                        <option value="300">300행</option>
+                        <option value="500">500행</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <div class="flex flex-wrap gap-2" id="filterContainer">
+                </div>
+        </div>
+
+        <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
+            </div>
+
+        <div id="paginationContainer" class="mt-16 mb-10 flex flex-col items-center gap-6">
+            <div id="pageNumbers" class="flex justify-center items-center gap-2 flex-wrap"></div>
+            <div id="pageJumpArea" class="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100">
+                <span id="totalPagesText" class="text-xs font-black text-slate-400 uppercase tracking-widest">Total 0 Pages</span>
+                <div class="h-4 w-[1px] bg-slate-200 mx-2"></div>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="pageInput" class="w-16 bg-slate-50 border-none rounded-lg px-2 py-1 text-center text-xs font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500" placeholder="Page">
+                    <button onclick="jumpToPage()" class="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all">Move</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="hidden py-40 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center">
+            <i data-lucide="hard-drive" class="w-20 h-20 text-slate-100 mb-6"></i>
+            <h3 class="text-xl font-black text-slate-400 uppercase tracking-widest">데이터 없음</h3>
+            <p class="text-sm text-slate-300 mt-2">상단의 '대량 수집' 버튼으로 등록을 시작하세요.</p>
+        </div>
+    </main>
+
+    <div id="importModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl hidden">
+        <div class="bg-white rounded-[3rem] w-full max-w-6xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden modal-animate relative">
+            <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800 flex items-center gap-4 uppercase tracking-tighter"><i data-lucide="refresh-ccw" class="w-9 h-9 text-indigo-600"></i>Bulk Import</h2>
+                    <p class="text-sm text-slate-500 mt-1">대량 데이터를 IndexedDB에 고속으로 저장합니다.</p>
+                </div>
+                <button onclick="closeModal()" class="p-4 hover:bg-slate-100 rounded-full transition-all text-slate-300"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+            <div class="flex-1 overflow-hidden flex flex-col lg:flex-row">
+                <div class="w-full lg:w-[35%] p-8 bg-slate-50 border-r border-slate-100 flex flex-col gap-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">이미지 서버 주소</label>
+                        <input type="text" id="baseUrlInput" value="https://cdn.hwadong.com" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-700 shadow-sm">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">수동 날짜 설정</span>
+                        <input type="date" id="bulkDate" class="text-xs border-none bg-white shadow-sm rounded-lg px-3 py-1 font-bold text-indigo-600 focus:ring-0">
+                    </div>
+                    <textarea id="pasteArea" class="flex-1 w-full p-6 bg-white rounded-[2rem] border-2 border-slate-100 focus:border-indigo-500 font-mono text-xs leading-relaxed resize-none shadow-inner" placeholder="웹페이지 내용을 붙여넣으세요."></textarea>
+                    <button id="analyzeBtn" onclick="parseBulk(document.getElementById('pasteArea').value)" class="py-3 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all">텍스트 분석하기</button>
+                </div>
+                <div id="previewArea" class="w-full lg:w-[65%] p-8 overflow-y-auto custom-scrollbar bg-white relative">
+                    <div class="mb-6 flex justify-between items-center border-b border-slate-50 pb-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">분석 결과 미리보기</span>
+                            <div id="headerDetectionInfo" class="text-[10px] font-bold text-indigo-500 font-mono uppercase tracking-tighter">정보 대기 중...</div>
+                        </div>
+                        <div id="parseStats" class="flex gap-4 text-[10px] font-bold text-slate-400"></div>
+                    </div>
+                    <div id="importLoadingSpinner" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                        <i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin text-indigo-600"></i>
+                        <p id="spinnerText" class="text-sm font-black text-indigo-600 uppercase tracking-widest">데이터 분석 중...</p>
+                    </div>
+                    <div id="previewGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    <div id="previewEmpty" class="h-full flex flex-col items-center justify-center text-slate-200 py-20">
+                        <i data-lucide="info" class="w-16 h-16 mb-4 opacity-10 mx-auto block"></i>
+                        <p class="text-sm font-black text-slate-300 uppercase tracking-widest text-center">No data parsed yet</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-8 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                <div id="saveCountDisplay" class="font-black text-indigo-600 text-lg uppercase tracking-tighter">0 Items Ready</div>
+                <div class="flex gap-4">
+                    <button onclick="closeModal()" class="px-8 py-3.5 font-black text-slate-400 hover:text-slate-600 text-xs uppercase tracking-widest transition-all">Cancel</button>
+                    <button id="saveBtn" onclick="saveAllParsed()" class="px-12 py-3.5 bg-indigo-600 text-white rounded-[1.5rem] font-black hover:bg-indigo-700 shadow-xl shadow-indigo-200 flex items-center gap-3 text-xs uppercase tracking-widest disabled:opacity-30 transition-all">
+                        <i data-lucide="save" class="w-5 h-5"></i> Save To Local Storage
+                    </button>
+                </div>
+            </div>
+            <div id="progressOverlay" class="absolute inset-0 z-[60] bg-white/95 backdrop-blur-md hidden flex flex-col items-center justify-center p-12 text-center">
+                <i data-lucide="loader-2" class="w-24 h-24 text-indigo-600 animate-spin mb-8"></i>
+                <h3 class="text-3xl font-black text-slate-800 mb-2">저장소 동기화 중</h3>
+                <div class="w-full max-w-sm h-3 bg-slate-100 rounded-full overflow-hidden mb-4">
+                    <div id="progressBar" class="h-full bg-indigo-600 transition-all duration-300 w-0"></div>
+                </div>
+                <p id="progressText" class="font-black text-slate-400 text-[10px] uppercase tracking-widest italic font-mono text-center">Syncing Database...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md hidden" onclick="closeDetail()">
+        <div class="bg-white rounded-[3.5rem] w-full max-w-7xl shadow-2xl flex flex-col max-h-[96vh] overflow-hidden modal-animate" onclick="event.stopPropagation()">
+            <div class="p-10 border-b border-slate-100 flex justify-between items-center bg-white">
+                <div id="detailHeader"></div>
+                <button onclick="closeDetail()" class="p-4 hover:bg-slate-100 rounded-full transition-all text-slate-300"><i data-lucide="x" class="w-10 h-10"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-10 custom-scrollbar">
+                <div id="detailImages" class="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12 h-[60vh]"></div>
+                <div id="detailInfo" class="grid grid-cols-2 md:grid-cols-4 gap-8 p-10 bg-slate-50 rounded-[3rem] border border-slate-100 shadow-inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="resetModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl text-center modal-animate">
+            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="alert-triangle" class="w-10 h-10"></i></div>
+            <h2 class="text-2xl font-black text-slate-800 mb-2 tracking-tighter uppercase text-red-600">데이터 초기화</h2>
+            <p class="text-slate-500 mb-8 font-medium">로컬 저장소의 모든 경매 정보가 삭제됩니다. 되돌릴 수 없습니다.</p>
+            <div class="flex gap-4">
+                <button onclick="closeResetModal()" class="flex-1 py-4 rounded-2xl font-black text-slate-400 bg-slate-50 uppercase text-xs transition-all">취소</button>
+                <button onclick="confirmClearAllData()" class="flex-1 py-4 rounded-2xl font-black text-white bg-red-600 uppercase text-xs transition-all shadow-lg shadow-red-100">전체 초기화</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-3 hidden animate-in fade-in slide-in-from-top-4 transition-all duration-300">
+        <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+        <span id="toastMsg" class="font-bold text-sm">성공!</span>
+    </div>
+
+    <script>
+        // --- IndexedDB Handler ---
+        const DB_NAME = 'HwadongAuctionDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'auctionItems';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveItemsToDB(items) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            for (const item of items) { store.put(item); }
+            return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = (e) => reject(e.target.error); });
+        }
+
+        async function getAllItemsFromDB() {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.getAll();
+            return new Promise((resolve, reject) => { request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e.target.error); });
+        }
+
+        async function clearDB() {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.clear();
+            return new Promise((resolve) => tx.oncomplete = () => resolve());
+        }
+
+        // --- Core Variables ---
+        let auctionItems = [];
+        let parsedData = [];
+        let isSaving = false;
+        let currentPage = 1;
+        let itemsPerPage = 100;
+
+        // --- NEW: Filter Keyword Logic ---
+        const filterKeywords = [
+            "朝銀", "第一銀行", "舊 韓國", "朝鮮銀行", "조선은행",
+            "韓國銀行", "한국은행", "조선한성", "창덕", "주월",
+            "常平通寶", "朝鮮通寶", "朝鮮", "現行", "銀貨",
+            "金貨", "靑銅貨", "黃銅", "적동", "황동", 
+            "금화", "은화", "청동", // Added requested items
+            "한국조폐공사", "중국", "일본"
+        ];
+        let selectedFilters = new Set(['전체']);
+
+        function renderFilterButtons() {
+            const container = document.getElementById('filterContainer');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const createBtn = (text) => {
+                const isSelected = selectedFilters.has(text);
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1.5 rounded-lg text-xs font-bold border transition-all select-none ${
+                    isSelected 
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200' 
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                }`;
+                btn.innerHTML = `
+                    <span class="flex items-center gap-1.5">
+                        ${isSelected ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                        ${text}
+                    </span>
+                `;
+                btn.onclick = () => toggleFilter(text);
+                return btn;
+            };
+
+            // '전체' 버튼
+            container.appendChild(createBtn('전체'));
+
+            // 키워드 버튼들
+            filterKeywords.forEach(word => {
+                container.appendChild(createBtn(word));
+            });
+            initIcons();
+        }
+
+        function toggleFilter(keyword) {
+            if (keyword === '전체') {
+                selectedFilters.clear();
+                selectedFilters.add('전체');
+            } else {
+                if (selectedFilters.has('전체')) selectedFilters.delete('전체');
+                
+                if (selectedFilters.has(keyword)) {
+                    selectedFilters.delete(keyword);
+                } else {
+                    selectedFilters.add(keyword);
+                }
+
+                // 모두 해제되면 다시 '전체'로 복귀
+                if (selectedFilters.size === 0) selectedFilters.add('전체');
+            }
+            currentPage = 1;
+            renderFilterButtons();
+            renderItems();
+        }
+
+        // --- Helpers ---
+        function getSessNum(s) { 
+            if (!s) return 0;
+            return parseInt(s.toString().replace(/[^0-9]/g, '')) || 0; 
+        }
+        function getLotNum(l) { 
+            if (!l) return 0;
+            return parseInt(l.toString().replace(/[^0-9]/g, '')) || 0; 
+        }
+
+        // --- Sorting Logic ---
+        function getSortValue(item, key) {
+            if (key.includes('title')) return (item.title || '').toString().toLowerCase();
+            if (key.includes('date')) return item.date || '';
+            if (key.includes('start')) return item.startPrice || 0;
+            if (key.includes('end')) return item.finalPrice || 0;
+            if (key.includes('session')) return getSessNum(item.auctionSession);
+            return '';
+        }
+
+        function compareItems(a, b, sortKey) {
+            if (!sortKey || sortKey === 'none') return 0;
+            if (sortKey === 'default') {
+                const sA = getSessNum(a.auctionSession);
+                const sB = getSessNum(b.auctionSession);
+                if (sB !== sA) return sB - sA; 
+                return getLotNum(a.lotNumber) - getLotNum(b.lotNumber); 
+            }
+            const valA = getSortValue(a, sortKey);
+            const valB = getSortValue(b, sortKey);
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                if (sortKey.includes('_desc')) return valB.localeCompare(valA);
+                return valA.localeCompare(valB);
+            } else {
+                if (sortKey.includes('_desc')) return valB - valA;
+                return valA - valB;
+            }
+        }
+
+        function applySort() {
+            const s1 = document.getElementById('sort1').value;
+            const s2 = document.getElementById('sort2').value;
+            const s3 = document.getElementById('sort3').value;
+            auctionItems.sort((a, b) => {
+                let res = compareItems(a, b, s1);
+                if (res !== 0) return res;
+                res = compareItems(a, b, s2);
+                if (res !== 0) return res;
+                return compareItems(a, b, s3);
+            });
+            currentPage = 1;
+            renderItems();
+        }
+
+        function resetSort() {
+            document.getElementById('sort1').value = 'default';
+            document.getElementById('sort2').value = 'none';
+            document.getElementById('sort3').value = 'none';
+            applySort();
+        }
+
+        function initIcons() { if (window.lucide) lucide.createIcons(); }
+
+        function updateStats() {
+            const display = document.getElementById('itemCountDisplay');
+            if (display) display.innerHTML = `<i data-lucide="database" class="w-6 h-6 text-indigo-400"></i> 총 <span class="text-indigo-600 font-black px-1">${auctionItems.length}</span>개의 경매 정보 보관 중`;
+            initIcons();
+        }
+
+        function showToast(msg) { 
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            if (toast && toastMsg) {
+                toastMsg.innerText = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            }
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('searchInput');
+            if(input) { input.value = ''; toggleSearchClear(); currentPage = 1; renderItems(); }
+        }
+
+        function toggleSearchClear() {
+            const input = document.getElementById('searchInput');
+            const btn = document.getElementById('searchClearBtn');
+            if(input && btn) {
+                if(input.value.length > 0) btn.classList.remove('hidden');
+                else btn.classList.add('hidden');
+            }
+        }
+
+        function changeItemsPerPage() {
+            const select = document.getElementById('rowsPerPage');
+            if(select) { itemsPerPage = parseInt(select.value); currentPage = 1; renderItems(); }
+        }
+
+        // --- Main Logic ---
+        async function loadItems() {
+            try {
+                const data = await getAllItemsFromDB();
+                auctionItems = data || [];
+                resetSort();
+                renderFilterButtons(); // 초기 버튼 렌더링
+            } catch (e) {
+                console.error("Load Error:", e);
+                auctionItems = [];
+                renderItems();
+            }
+        }
+
+        async function persistItems() {
+            try {
+                await saveItemsToDB(auctionItems);
+                updateStats();
+                return true;
+            } catch (e) {
+                alert("저장 중 오류가 발생했습니다.");
+                return false;
+            }
+        }
+
+        function renderItems() {
+            const filterInput = document.getElementById('searchInput');
+            const searchText = filterInput ? filterInput.value.toLowerCase() : '';
+            
+            const filtered = auctionItems.filter(i => {
+                const titleStr = (i.title || '').toString();
+                
+                // 1. 검색어 체크
+                const matchesSearch = titleStr.toLowerCase().includes(searchText) || 
+                                      (i.lotNumber || '').toString().includes(searchText) ||
+                                      (i.auctionSession || '').toLowerCase().includes(searchText);
+
+                // 2. 태그 필터 체크
+                let matchesTags = false;
+                if (selectedFilters.has('전체')) {
+                    matchesTags = true;
+                } else {
+                    for (let keyword of selectedFilters) {
+                        if (titleStr.includes(keyword)) {
+                            matchesTags = true;
+                            break;
+                        }
+                    }
+                }
+
+                return matchesSearch && matchesTags;
+            });
+            
+            const grid = document.getElementById('itemsGrid');
+            const empty = document.getElementById('emptyState');
+            if (!grid) return;
+
+            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+            if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
+
+            grid.innerHTML = '';
+            if (filtered.length === 0) {
+                if (empty) empty.classList.remove('hidden');
+                document.getElementById('paginationContainer').classList.add('hidden');
+            } else {
+                if (empty) empty.classList.add('hidden');
+                document.getElementById('paginationContainer').classList.remove('hidden');
+                const start = (currentPage - 1) * itemsPerPage;
+                const paginatedItems = filtered.slice(start, start + itemsPerPage);
+
+                paginatedItems.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all group relative cursor-pointer shadow-sm";
+                    card.onclick = () => openDetail(item.id);
+                    const imgs = item.imageUrls || [];
+                    let imgHtml = imgs.length >= 2 
+                        ? `<div class="flex h-full bg-slate-50"><div class="w-1/2 h-full border-r border-slate-200 relative"><img src="${imgs[0]}" class="w-full h-full object-contain"></div><div class="w-1/2"><img src="${imgs[1]}" class="w-full h-full object-contain"></div></div>` 
+                        : (imgs.length === 1 ? `<img src="${imgs[0]}" class="w-full h-full object-contain bg-slate-50">` : `<div class="w-full h-full flex items-center justify-center text-slate-200 bg-slate-50"><i data-lucide="image" class="w-10 h-10"></i></div>`);
+                    
+                    card.innerHTML = `<div class="aspect-[4/3] bg-slate-100 relative overflow-hidden">${imgHtml}<div class="absolute top-6 left-6 z-10 flex flex-col gap-2">${item.auctionSession ? `<span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-[9px] font-black shadow-lg uppercase tracking-tighter self-start">${item.auctionSession}</span>` : ''}<span class="bg-white/90 backdrop-blur-md text-slate-800 px-3 py-1 rounded-full text-[10px] font-black shadow-sm border border-slate-100 uppercase tracking-tighter self-start">LOT ${item.lotNumber}</span></div><button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="absolute top-6 right-6 z-10 p-3 bg-white/90 backdrop-blur-md text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:bg-red-600 hover:text-white"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><div class="p-6 leading-relaxed"><h3 class="font-bold text-slate-800 line-clamp-2 text-xs h-8 mb-4 leading-tight">${item.title}</h3><div class="grid grid-cols-2 gap-4 mb-4 text-[10px] font-bold"><div class="flex flex-col"><span class="text-slate-300 uppercase font-black">경매일</span><span class="text-slate-600 truncate text-[11px]">${item.date}</span></div><div class="flex flex-col items-end"><span class="text-slate-300 uppercase font-black">상태</span><span class="text-indigo-600 font-black">${item.status}</span></div></div><div class="bg-slate-50 rounded-2xl p-4 space-y-2 text-[10px] font-bold shadow-inner"><div class="flex justify-between items-center"><span class="text-slate-400">시작가</span><span class="text-slate-600 font-black">₩${(item.startPrice||0).toLocaleString()}</span></div><div class="flex justify-between items-center border-t border-slate-200 pt-2"><span class="text-indigo-400 uppercase tracking-tighter font-black font-sans">낙찰가</span><span class="${item.finalPrice > 0 ? 'text-indigo-700 text-sm font-black' : 'text-slate-300 italic font-medium'}">${item.finalPrice > 0 ? '₩' + item.finalPrice.toLocaleString() : '유찰'}</span></div></div></div>`;
+                    grid.appendChild(card);
+                });
+                renderPagination(filtered.length);
+            }
+            updateStats();
+        }
+
+        function renderPagination(totalCount) {
+            const totalPages = Math.ceil(totalCount / itemsPerPage);
+            const numContainer = document.getElementById('pageNumbers');
+            const totalText = document.getElementById('totalPagesText');
+            if (!numContainer) return;
+            numContainer.innerHTML = '';
+            totalText.innerText = `Total ${totalPages} Pages`;
+            const createBtn = (page, text, isActive = false) => {
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-xl text-xs font-black transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-50 border border-slate-100 shadow-sm'}`;
+                btn.innerText = text;
+                btn.onclick = () => { currentPage = page; renderItems(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+                return btn;
+            };
+            numContainer.appendChild(createBtn(1, 'First'));
+            let start = Math.max(1, currentPage - 2);
+            let end = Math.min(totalPages, start + 4);
+            if (end === totalPages) start = Math.max(1, end - 4);
+            for (let i = start; i <= end; i++) { if (i > 0) numContainer.appendChild(createBtn(i, i, i === currentPage)); }
+            numContainer.appendChild(createBtn(totalPages, 'Last'));
+        }
+
+        function jumpToPage() {
+            const input = document.getElementById('pageInput');
+            const val = parseInt(input.value);
+            const totalPages = Math.ceil(auctionItems.length / itemsPerPage);
+            if (val >= 1 && val <= totalPages) { currentPage = val; renderItems(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+            else { showToast(`1 ~ ${totalPages} 사이 번호를 입력하세요.`); }
+            input.value = '';
+        }
+
+        // --- Parsing & Batch saving ---
+        function parseBulk(text) {
+            if (!text || !text.trim()) return;
+            const spinner = document.getElementById('importLoadingSpinner');
+            if (spinner) spinner.classList.remove('hidden');
+            const baseUrl = document.getElementById('baseUrlInput').value.trim().replace(/\/$/, '');
+            const imgRegex = /((https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp)(?:\?[^\s"'<>]*)?)|(\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp)(?:\?[^\s"'<>]*)?))/gi;
+            const lotRegex = /\[(?:Lot|상품번호)\s*:?\s*(\d+)\]/gi;
+            const headerRegex = /(\d+회)\s+([\d-]+\s[\d:]+\s~\s[\d-]+\s[\d:]+)/i;
+            const headerMatch = text.match(headerRegex);
+            const dSess = headerMatch ? headerMatch[1].trim() : "";
+            const dDate = headerMatch ? headerMatch[2].trim() : (document.getElementById('bulkDate').value || new Date().toISOString().split('T')[0]);
+            document.getElementById('headerDetectionInfo').innerText = headerMatch ? `DETECTION: ${dSess}` : "NO HEADER FOUND";
+
+            setTimeout(() => {
+                let matches = [];
+                let m;
+                while ((m = lotRegex.exec(text)) !== null) matches.push({ n: m[1], idx: m.index, full: m[0] });
+                const existingKeys = new Set(auctionItems.map(item => `${item.lotNumber}_${item.title}_${item.auctionSession}`.replace(/\s/g, '')));
+                const results = [];
+                matches.forEach((lot, i) => {
+                    const nextIdx = matches[i+1] ? matches[i+1].idx : text.length;
+                    const prevIdx = i === 0 ? 0 : matches[i-1].idx + matches[i-1].full.length;
+                    const imgSection = text.substring(prevIdx, lot.idx);
+                    const contentSection = text.substring(lot.idx + lot.full.length, nextIdx);
+                    const lines = contentSection.trim().split('\n').map(l => l.trim()).filter(l => l);
+                    const title = lines[0] || "No Title";
+                    const statusLine = lines.find(l => l.includes('상태:'));
+                    const status = statusLine ? statusLine.split('상태:')[1].trim() : "N/A";
+                    let front = null, back = null, others = [];
+                    const imgMatches = imgSection.match(imgRegex) || [];
+                    imgMatches.forEach(url => {
+                        let fUrl = url.trim();
+                        if (fUrl.startsWith('/')) fUrl = (baseUrl || 'https://cdn.hwadong.com') + fUrl;
+                        if (fUrl.toLowerCase().includes('-1.jpg')) front = fUrl;
+                        else if (fUrl.toLowerCase().includes('-2.jpg')) back = fUrl;
+                        else others.push(fUrl);
+                    });
+                    if(!front && others.length > 0) front = others.shift();
+                    if(!back && others.length > 0) back = others.shift();
+                    const getP = (key) => {
+                        const idx = lines.findIndex(l => l.includes(key));
+                        if(idx === -1) return 0;
+                        const line = lines[idx].includes('원') || lines[idx].includes('유찰') ? lines[idx] : (lines[idx+1] || "");
+                        return line.includes('유찰') ? 0 : parseInt(line.replace(/[^0-9]/g, '')) || 0;
+                    };
+                    const key = `${lot.n}_${title}_${dSess}`.replace(/\s/g, '');
+                    results.push({ id: Math.random().toString(36).substr(2, 9), lotNumber: lot.n, auctionSession: dSess, title, status, startPrice: getP('시작가'), finalPrice: getP('낙찰가'), date: dDate, imageUrls: [front, back].filter(u => u), isDuplicate: existingKeys.has(key), createdAt: new Date().toISOString() });
+                });
+                parsedData = results;
+                if (spinner) spinner.classList.add('hidden');
+                updatePreview();
+            }, 50);
+        }
+
+        function updatePreview() {
+            const grid = document.getElementById('previewGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            if (parsedData.length === 0) {
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('previewEmpty').classList.remove('hidden');
+            } else {
+                document.getElementById('previewEmpty').classList.add('hidden');
+                const dupes = parsedData.filter(p => p.isDuplicate).length;
+                const news = parsedData.length - dupes;
+                document.getElementById('parseStats').innerHTML = `<span class="text-red-500 font-bold">Dup: ${dupes}</span> <span class="text-indigo-600 font-bold">New: ${news}</span>`;
+                document.getElementById('saveCountDisplay').innerText = `${news} Items Ready`;
+                document.getElementById('saveBtn').disabled = news === 0;
+                parsedData.slice(0, 50).forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = `p-4 rounded-[1.5rem] border flex gap-3 ${item.isDuplicate ? 'bg-red-50 border-red-100 opacity-60' : 'bg-white border-slate-200'}`;
+                    const imgs = item.imageUrls || [];
+                    let imgH = imgs.length >= 2 ? `<div class="w-16 h-12 flex rounded bg-slate-50 overflow-hidden border"><div class="w-1/2 border-r"><img src="${imgs[0]}" class="w-full h-full object-contain"></div><div class="w-1/2"><img src="${imgs[1]}" class="w-full h-full object-contain"></div></div>` : (imgs.length === 1 ? `<img src="${imgs[0]}" class="w-16 h-12 rounded border bg-slate-50 object-contain">` : `<div class="w-16 h-12 flex items-center justify-center bg-slate-50 rounded border text-slate-200"><i data-lucide="image" class="w-4 h-4"></i></div>`);
+                    div.innerHTML = `${imgH}<div class="min-w-0 flex-1"><div class="font-black text-indigo-600 text-[9px]">LOT ${item.lotNumber}</div><div class="font-bold text-slate-800 truncate text-[11px] font-sans">${item.title}</div><div class="flex justify-between items-center mt-1 text-[10px] font-black"><span class="text-slate-400">₩${(item.finalPrice||0).toLocaleString()}</span><span class="${item.finalPrice > 0 ? 'text-indigo-600' : 'text-slate-300'}">${item.finalPrice > 0 ? '낙찰' : '유찰'}</span></div></div>`;
+                    grid.appendChild(div);
+                });
+            }
+            initIcons();
+        }
+
+        async function saveAllParsed() {
+            if (isSaving) return; 
+            const toSave = parsedData.filter(p => !p.isDuplicate);
+            if (toSave.length === 0) return;
+            isSaving = true;
+            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('progressOverlay').classList.remove('hidden');
+            const chunkSize = 250;
+            for (let i = 0; i < toSave.length; i += chunkSize) {
+                const chunk = toSave.slice(i, i + chunkSize).map(item => ({...item, id: Math.random().toString(36).substr(2, 9)}));
+                auctionItems = [...chunk, ...auctionItems];
+                document.getElementById('progressBar').style.width = `${Math.min(100, (i / toSave.length) * 100)}%`;
+                await new Promise(r => setTimeout(r, 30));
+            }
+            if (await persistItems()) {
+                applySort();
+                isSaving = false; closeModal(); document.getElementById('progressOverlay').classList.add('hidden'); showToast(`${toSave.length}건 저장 완료!`);
+            } else { isSaving = false; document.getElementById('progressOverlay').classList.add('hidden'); }
+        }
+
+        async function importJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const fileNameDisplay = document.getElementById('fileNameDisplay');
+            if (fileNameDisplay) fileNameDisplay.innerText = file.name;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const json = JSON.parse(evt.target.result);
+                    if(!Array.isArray(json)) throw new Error();
+                    document.getElementById('importModal').classList.remove('hidden');
+                    const spinner = document.getElementById('importLoadingSpinner');
+                    spinner.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        const existingKeys = new Set(auctionItems.map(i => `${i.lotNumber}_${i.title}_${i.auctionSession}`.replace(/\s/g, '')));
+                        parsedData = json.map(item => ({ 
+                            ...item, 
+                            isDuplicate: existingKeys.has(`${item.lotNumber}_${item.title}_${item.auctionSession}`.replace(/\s/g, '')) 
+                        }));
+                        
+                        document.getElementById('pasteArea').value = "JSON LOADED.";
+                        const first = parsedData[0] || {};
+                        const info = document.getElementById('headerDetectionInfo');
+                        if (info) info.innerText = `IMPORTED: ${first.auctionSession || 'N/A'}`;
+                        if (spinner) spinner.classList.add('hidden');
+                        updatePreview(); initIcons();
+                    }, 50);
+                } catch (err) { alert("Invalid JSON!"); }
+            };
+            reader.readAsText(file);
+            e.target.value = null;
+        }
+
+        // --- Modals ---
+        function openModal() { if(isSaving) return; document.getElementById('pasteArea').value = ''; parsedData = []; updatePreview(); document.getElementById('importModal').classList.remove('hidden'); initIcons(); }
+        function closeModal() { if(isSaving) return; document.getElementById('importModal').classList.add('hidden'); }
+        function openResetModal() { document.getElementById('resetModal').classList.remove('hidden'); initIcons(); }
+        function closeResetModal() { document.getElementById('resetModal').classList.add('hidden'); }
+        async function confirmClearAllData() { 
+            await clearDB(); 
+            auctionItems = []; 
+            const fileNameDisplay = document.getElementById('fileNameDisplay');
+            if (fileNameDisplay) fileNameDisplay.innerText = '';
+            renderItems(); closeResetModal(); showToast("초기화 완료"); 
+        }
+
+        function openDetail(id) {
+            const item = auctionItems.find(i => i.id === id); if(!item) return;
+            const modal = document.getElementById('detailModal');
+            document.getElementById('detailHeader').innerHTML = `<div class="text-xs font-black text-indigo-600 mb-2 uppercase tracking-[0.25em]">${item.auctionSession || 'General'} Lot No. ${item.lotNumber}</div><h2 class="text-3xl font-black text-slate-800 leading-tight uppercase tracking-tighter">${item.title}</h2>`;
+            const imgs = item.imageUrls || [];
+            const imgArea = document.getElementById('detailImages');
+            if (imgs.length >= 2) {
+                imgArea.className = "grid grid-cols-1 md:grid-cols-2 gap-10 mb-12 h-[60vh]";
+                imgArea.innerHTML = `<div class="bg-slate-50 rounded-[3rem] p-6 border relative shadow-sm"><img src="${imgs[0]}" class="w-full h-full object-contain"><span class="absolute top-8 left-8 bg-indigo-600 text-white text-[9px] px-4 py-1.5 rounded-full font-black uppercase shadow-lg">앞면</span></div><div class="bg-slate-50 rounded-[3rem] p-6 border relative shadow-sm"><img src="${imgs[1]}" class="w-full h-full object-contain"><span class="absolute top-8 left-8 bg-slate-600 text-white text-[9px] px-4 py-1.5 rounded-full font-black uppercase shadow-lg">뒷면</span></div>`;
+            } else if (imgs.length === 1) {
+                imgArea.className = "flex justify-center mb-12 h-[60vh]";
+                imgArea.innerHTML = `<div class="bg-slate-50 rounded-[3rem] p-8 w-full max-w-4xl border shadow-sm"><img src="${imgs[0]}" class="w-full h-full object-contain"></div>`;
+            } else {
+                imgArea.className = "flex justify-center mb-12 h-[30vh]";
+                imgArea.innerHTML = `<i data-lucide="image" class="w-24 h-24 opacity-10"></i>`;
+            }
+            document.getElementById('detailInfo').innerHTML = `<div class="flex flex-col"><span class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b pb-2">상태</span><span class="font-black text-slate-800 text-3xl">${item.status}</span></div><div class="flex flex-col"><span class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b pb-2">경매일</span><span class="font-black text-slate-800 text-lg leading-tight break-all">${item.date}</span></div><div class="flex flex-col"><span class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b pb-2">시작가</span><span class="font-black text-slate-400 text-3xl italic">₩${(item.startPrice||0).toLocaleString()}</span></div><div class="flex flex-col"><span class="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-2 border-b border-indigo-100 pb-2 uppercase font-black tracking-tighter">낙찰가</span><span class="font-black text-indigo-700 text-4xl font-black">₩${(item.finalPrice||0).toLocaleString()}</span></div>`;
+            modal.classList.remove('hidden'); initIcons();
+        }
+        function closeDetail() { document.getElementById('detailModal').classList.add('hidden'); }
+        async function deleteItem(id) { if(!confirm("항목을 삭제하시겠습니까?")) return; auctionItems = auctionItems.filter(i => i.id !== id); await persistItems(); renderItems(); showToast("삭제되었습니다."); }
+        function exportJSON() { const now = new Date(); const d = now.toISOString().slice(0, 10); const h = String(now.getHours()).padStart(2, '0'); const m = String(now.getMinutes()).padStart(2, '0'); const blob = new Blob([JSON.stringify(auctionItems, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `auction_data_${d}_${h}-${m}.json`; a.click(); URL.revokeObjectURL(url); }
+
+        // --- Init ---
+        window.onload = () => {
+            loadItems();
+            const search = document.getElementById('searchInput');
+            if (search) search.addEventListener('input', () => { toggleSearchClear(); currentPage = 1; renderItems(); });
+            const bulkD = document.getElementById('bulkDate');
+            if (bulkD) bulkD.value = new Date().toISOString().split('T')[0];
+        };
+        window.onkeydown = (e) => { if(e.key === 'Escape') { closeDetail(); closeModal(); closeResetModal(); } };
+    </script>
+</body>
+</html>
